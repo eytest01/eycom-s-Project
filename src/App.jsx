@@ -126,7 +126,7 @@ function PriceEdit({onSave}){
 
 // 품목 수정 모달
 function EditPItemModal({item,onSave,onClose}){
-  const[form,setForm]=useState({name:item.name,category:item.category||"재료",buyLink:item.buy_link||"",buyUnit:item.buy_unit||"kg",buyWeight:String(item.buy_weight||1),price:String(item.price||0),memo:item.memo||""});
+  const[form,setForm]=useState({name:item.name,category:item.category||"재료",supplier:item.supplier||"",buyLink:item.buy_link||"",buyUnit:item.buy_unit||"kg",buyWeight:String(item.buy_weight||1),price:String(item.price||0),memo:item.memo||""});
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={onClose}>
       <div style={{background:"#fff",borderRadius:14,padding:"1.5rem",width:560,maxWidth:"95vw",boxShadow:"0 8px 40px rgba(0,0,0,0.18)"}} onClick={e=>e.stopPropagation()}>
@@ -134,13 +134,14 @@ function EditPItemModal({item,onSave,onClose}){
           <p style={{fontWeight:700,fontSize:15,margin:0}}>✏️ 품목 수정</p>
           <button onClick={onClose} style={{border:"none",background:"#f0f0f0",borderRadius:6,cursor:"pointer",padding:"4px 10px",fontSize:16,color:"#555"}}>✕</button>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
           <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>품목명</p><Inp value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
           <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>분류</p>
             <Sel value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))}>
               <option value="재료">재료</option><option value="포장재">포장재</option>
             </Sel>
           </div>
+          <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매처</p><Inp placeholder="예: 쿠팡, 네이버" value={form.supplier} onChange={e=>setForm(p=>({...p,supplier:e.target.value}))}/></div>
         </div>
         <div style={{marginBottom:8}}><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매링크 / 연락처</p><Inp placeholder="https:// 또는 전화번호" value={form.buyLink} onChange={e=>setForm(p=>({...p,buyLink:e.target.value}))}/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
@@ -189,7 +190,7 @@ export default function App(){
   const[recipeSearch,setRecipeSearch]=useState("");
 
   const[purchaseSection,setPurchaseSection]=useState("품목관리");
-  const[newPItem,setNewPItem]=useState({name:"",category:"재료",buyLink:"",buyUnit:"kg",buyWeight:"1",price:"",memo:""});
+  const[newPItem,setNewPItem]=useState({name:"",category:"재료",supplier:"",buyLink:"",buyUnit:"kg",buyWeight:"1",price:"",memo:""});
   const[pItemSearch,setPItemSearch]=useState("");
   const[pItemCategory,setPItemCategory]=useState("전체");
   const[selPItemId,setSelPItemId]=useState(null);
@@ -281,15 +282,15 @@ export default function App(){
   async function addPurchaseItem(){
     if(!sb||!newPItem.name) return;
     setSaving(true);
-    const item={id:Date.now(),name:newPItem.name,category:newPItem.category,buy_link:newPItem.buyLink,buy_unit:newPItem.buyUnit,buy_weight:parseFloat(newPItem.buyWeight)||1,price:parseFloat(newPItem.price)||0,memo:newPItem.memo,last_bought_date:"",price_history:newPItem.price?[{price:parseFloat(newPItem.price),date:new Date().toISOString().slice(0,10)}]:[]};
+    const item={id:Date.now(),name:newPItem.name,category:newPItem.category,supplier:newPItem.supplier,buy_link:newPItem.buyLink,buy_unit:newPItem.buyUnit,buy_weight:parseFloat(newPItem.buyWeight)||1,price:parseFloat(newPItem.price)||0,memo:newPItem.memo,last_bought_date:"",price_history:newPItem.price?[{price:parseFloat(newPItem.price),date:new Date().toISOString().slice(0,10)}]:[]};
     await sb.from("purchase_items").insert(item);
     setPurchaseItems(p=>[...p,item]);
-    setNewPItem({name:"",category:"재료",buyLink:"",buyUnit:"kg",buyWeight:"1",price:"",memo:""});
+    setNewPItem({name:"",category:"재료",supplier:"",buyLink:"",buyUnit:"kg",buyWeight:"1",price:"",memo:""});
     setSaving(false);
   }
   async function updatePurchaseItem(id,form){
     if(!sb) return;
-    const updates={name:form.name,category:form.category,buy_link:form.buyLink,buy_unit:form.buyUnit,buy_weight:parseFloat(form.buyWeight)||1,price:parseFloat(form.price)||0,memo:form.memo};
+    const updates={name:form.name,category:form.category,supplier:form.supplier,buy_link:form.buyLink,buy_unit:form.buyUnit,buy_weight:parseFloat(form.buyWeight)||1,price:parseFloat(form.price)||0,memo:form.memo};
     await sb.from("purchase_items").update(updates).eq("id",id);
     setPurchaseItems(p=>p.map(i=>i.id===id?{...i,...updates}:i));
     setEditingPItem(null);
@@ -638,13 +639,14 @@ export default function App(){
               <>
                 <Card>
                   <p style={{fontWeight:700,fontSize:14,margin:"0 0 14px",color:"#222"}}>➕ 품목 등록</p>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
                     <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>품목명</p><Inp placeholder="예: 쿠키박스(소)" value={newPItem.name} onChange={e=>setNewPItem(p=>({...p,name:e.target.value}))}/></div>
                     <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>분류</p>
                       <Sel value={newPItem.category} onChange={e=>setNewPItem(p=>({...p,category:e.target.value}))}>
                         <option value="재료">재료</option><option value="포장재">포장재</option>
                       </Sel>
                     </div>
+                    <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매처</p><Inp placeholder="예: 쿠팡, 네이버" value={newPItem.supplier} onChange={e=>setNewPItem(p=>({...p,supplier:e.target.value}))}/></div>
                     <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매링크 / 연락처</p><Inp placeholder="https:// 또는 전화번호" value={newPItem.buyLink} onChange={e=>setNewPItem(p=>({...p,buyLink:e.target.value}))}/></div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12,alignItems:"end"}}>
@@ -671,13 +673,14 @@ export default function App(){
                   <div style={{overflowX:"auto"}}>
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
                       <thead><tr style={{background:"#f8f8f8"}}>
-                        {["품목명","분류","구매링크/연락처","구매","단가","마지막구매일","메모",""].map(h=>(<th key={h} style={{padding:"7px 10px",fontWeight:500,color:"#666",fontSize:12,textAlign:h==="단가"?"right":"left"}}>{h}</th>))}
+                        {["품목명","분류","구매처","구매링크/연락처","구매","단가","마지막구매일","메모",""].map(h=>(<th key={h} style={{padding:"7px 10px",fontWeight:500,color:"#666",fontSize:12,textAlign:h==="단가"?"right":"left"}}>{h}</th>))}
                       </tr></thead>
                       <tbody>
                         {filteredPItems.map(item=>(
                           <tr key={item.id} style={{borderTop:"1px solid #f0f0f0",background:selPItemId===item.id?"#f0f7ff":"transparent"}}>
                             <td style={{padding:"8px 10px",fontWeight:600,cursor:"pointer",color:selPItemId===item.id?"#1a5fa8":"#111"}} onClick={()=>setSelPItemId(selPItemId===item.id?null:item.id)}>{item.name}</td>
                             <td style={{padding:"8px 10px"}}><span style={{background:"#f0f0f0",padding:"2px 8px",borderRadius:12,fontSize:11}}>{item.category}</span></td>
+                            <td style={{padding:"8px 10px",color:"#555",fontSize:12}}>{item.supplier||"-"}</td>
                             <td style={{padding:"8px 10px"}}>
                               {item.buy_link
                                 ? isUrl(item.buy_link)
