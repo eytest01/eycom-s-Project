@@ -8,6 +8,7 @@ const PAGE_SIZE = 20;
 
 function fmt(n){ return isNaN(n)||n==null?"-":Math.round(n).toLocaleString(); }
 function fmtD(n,d=1){ return isNaN(n)||n==null?"-":Number(n).toFixed(d); }
+function isUrl(s){ return s&&/^https?:\/\//i.test(s); }
 
 function cpg(ing){
   if(!ing||!ing.price||!ing.buy_weight) return 0;
@@ -39,7 +40,7 @@ function calcRecipeFull(recipe,allIng,allRec,depth=0){
 
 function calcSellUnitCost(recipe,allIng,allRec){
   const res=calcRecipeFull(recipe,allIng,allRec);
-  const totalW=res.totalWeight, totalCost=res.total;
+  const totalW=res.totalWeight,totalCost=res.total;
   const pw=parseFloat(recipe.pieceWeight)||0;
   if(!pw||!totalW) return{pieceCost:0,sellUnitCost:0,margin:0,pieceCount:0,res};
   const pieceCost=totalCost/(totalW/pw);
@@ -56,7 +57,6 @@ function parseSellUnit(val){
   if(val.includes("*")){const[a,b]=val.split("*");return{qty:parseFloat(a)||1,unit:b.replace(/[0-9]/g,"")};}
   return{qty:parseFloat(val)||1,unit:val.replace(/[0-9.]/g,"")};
 }
-
 function buildSellUnit(qty,type){
   if(type==="개") return`${qty}개`;
   if(type==="봉") return`${qty}개*1봉`;
@@ -70,6 +70,7 @@ const Btn=({onClick,children,variant="default",active,style={}})=>{
     danger:{background:"#fef0f0",color:"#E24B4A",border:"1px solid #f7c1c1"},
     ghost:{background:"transparent",color:"#555",border:"1px solid #ddd"},
     success:{background:"#eaf3de",color:"#3B6D11",border:"1px solid #c0dd97"},
+    warning:{background:"#faeeda",color:"#BA7517",border:"1px solid #f0c070"},
   };
   return<button onClick={onClick} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500,display:"inline-flex",alignItems:"center",gap:6,transition:"all 0.15s",...v[variant],...style}}>{children}</button>;
 };
@@ -123,6 +124,44 @@ function PriceEdit({onSave}){
   );
 }
 
+// 품목 수정 모달
+function EditPItemModal({item,onSave,onClose}){
+  const[form,setForm]=useState({name:item.name,category:item.category||"재료",buyLink:item.buy_link||"",buyUnit:item.buy_unit||"kg",buyWeight:String(item.buy_weight||1),price:String(item.price||0),memo:item.memo||""});
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={onClose}>
+      <div style={{background:"#fff",borderRadius:14,padding:"1.5rem",width:560,maxWidth:"95vw",boxShadow:"0 8px 40px rgba(0,0,0,0.18)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <p style={{fontWeight:700,fontSize:15,margin:0}}>✏️ 품목 수정</p>
+          <button onClick={onClose} style={{border:"none",background:"#f0f0f0",borderRadius:6,cursor:"pointer",padding:"4px 10px",fontSize:16,color:"#555"}}>✕</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>품목명</p><Inp value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+          <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>분류</p>
+            <Sel value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))}>
+              <option value="재료">재료</option><option value="포장재">포장재</option>
+            </Sel>
+          </div>
+        </div>
+        <div style={{marginBottom:8}}><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매링크 / 연락처</p><Inp placeholder="https:// 또는 전화번호" value={form.buyLink} onChange={e=>setForm(p=>({...p,buyLink:e.target.value}))}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매단위</p>
+            <Sel value={form.buyUnit} onChange={e=>setForm(p=>({...p,buyUnit:e.target.value}))}>
+              {BUY_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
+            </Sel>
+          </div>
+          <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매수량</p><Inp type="number" value={form.buyWeight} onChange={e=>setForm(p=>({...p,buyWeight:e.target.value}))}/></div>
+          <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매단가 (원)</p><Inp type="number" value={form.price} onChange={e=>setForm(p=>({...p,price:e.target.value}))}/></div>
+        </div>
+        <div style={{marginBottom:16}}><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>메모</p><Inp value={form.memo} onChange={e=>setForm(p=>({...p,memo:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <Btn onClick={onClose} variant="ghost">취소</Btn>
+          <Btn onClick={()=>onSave(form)} variant="primary">💾 저장</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
   const[tab,setTab]=useState("재료");
   const[ingredients,setIngredients]=useState([]);
@@ -135,7 +174,6 @@ export default function App(){
   const[saving,setSaving]=useState(false);
   const[sb,setSb]=useState(null);
 
-  // 재료 폼
   const[newIng,setNewIng]=useState({name:"",supplier:"",buyUnit:"kg",buyWeight:"1",price:"",date:""});
   const[newSupInput,setNewSupInput]=useState("");
   const[showAddSup,setShowAddSup]=useState(false);
@@ -144,25 +182,24 @@ export default function App(){
   const[ingPage,setIngPage]=useState(1);
   const[selectedIngIds,setSelectedIngIds]=useState([]);
 
-  // 레시피 폼
   const[newRecipe,setNewRecipe]=useState({name:"",pieceWeight:"",salePrice:"",sellUnit:"1개",sellUnitQty:"1",sellUnitType:"개",items:[],steps:[]});
   const[newStep,setNewStep]=useState("");
   const[addItem,setAddItem]=useState({type:"ingredient",ingName:"",ingId:null,recipeId:"",amount:""});
   const[recipeView,setRecipeView]=useState({});
   const[recipeSearch,setRecipeSearch]=useState("");
 
-  // 구매·지점요청 폼
   const[purchaseSection,setPurchaseSection]=useState("품목관리");
   const[newPItem,setNewPItem]=useState({name:"",category:"재료",buyLink:"",buyUnit:"kg",buyWeight:"1",price:"",memo:""});
   const[pItemSearch,setPItemSearch]=useState("");
   const[pItemCategory,setPItemCategory]=useState("전체");
   const[selPItemId,setSelPItemId]=useState(null);
+  const[editingPItem,setEditingPItem]=useState(null); // 수정 모달용
   const[newBranch,setNewBranch]=useState("");
   const[newOrder,setNewOrder]=useState({branch:"",orderDate:new Date().toISOString().slice(0,10),orderer:"",items:[],memo:""});
   const[addOrderItem,setAddOrderItem]=useState({itemId:"",qty:"",unit:""});
   const[orderViewMode,setOrderViewMode]=useState("일별");
   const[orderFilterBranch,setOrderFilterBranch]=useState("전체");
-  const[orderFilterDate,setOrderFilterDate]=useState(new Date().toISOString().slice(0,7));
+  const[orderFilterDate,setOrderFilterDate]=useState(new Date().toISOString().slice(0,10));
 
   useEffect(()=>{
     import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm").then(m=>{
@@ -171,7 +208,7 @@ export default function App(){
     });
   },[]);
 
-  useEffect(()=>{if(sb) loadAll();},[sb]);
+  useEffect(()=>{if(sb)loadAll();},[sb]);
 
   async function loadAll(){
     setLoading(true);
@@ -250,6 +287,13 @@ export default function App(){
     setNewPItem({name:"",category:"재료",buyLink:"",buyUnit:"kg",buyWeight:"1",price:"",memo:""});
     setSaving(false);
   }
+  async function updatePurchaseItem(id,form){
+    if(!sb) return;
+    const updates={name:form.name,category:form.category,buy_link:form.buyLink,buy_unit:form.buyUnit,buy_weight:parseFloat(form.buyWeight)||1,price:parseFloat(form.price)||0,memo:form.memo};
+    await sb.from("purchase_items").update(updates).eq("id",id);
+    setPurchaseItems(p=>p.map(i=>i.id===id?{...i,...updates}:i));
+    setEditingPItem(null);
+  }
   async function updatePItemPrice(id,newPrice,date){
     if(!sb) return;
     const d=date||new Date().toISOString().slice(0,10);
@@ -271,8 +315,7 @@ export default function App(){
   // ── 주문 ──
   function addOrderItemFn(){
     if(!addOrderItem.itemId||!addOrderItem.qty) return;
-    const item=purchaseItems.find(i=>i.id===parseInt(addOrderItem.itemId));
-    if(!item) return;
+    const item=purchaseItems.find(i=>i.id===parseInt(addOrderItem.itemId)); if(!item) return;
     const unit=addOrderItem.unit||item.buy_unit;
     const totalPrice=item.price*parseFloat(addOrderItem.qty);
     setNewOrder(p=>({...p,items:[...p.items,{itemId:item.id,name:item.name,qty:parseFloat(addOrderItem.qty),unit,price:item.price,totalPrice}]}));
@@ -284,12 +327,18 @@ export default function App(){
     const order={id:Date.now(),branch:newOrder.branch,order_date:newOrder.orderDate,orderer:newOrder.orderer,items:newOrder.items,memo:newOrder.memo};
     await sb.from("branch_orders").insert(order);
     setBranchOrders(p=>[order,...p]);
+    // 주문된 품목들의 마지막 구매일 자동 업데이트
+    const uniqueItemIds=[...new Set(newOrder.items.map(i=>i.itemId))];
+    for(const itemId of uniqueItemIds){
+      await sb.from("purchase_items").update({last_bought_date:newOrder.orderDate}).eq("id",itemId);
+      setPurchaseItems(p=>p.map(i=>i.id===itemId?{...i,last_bought_date:newOrder.orderDate}:i));
+    }
     setNewOrder({branch:"",orderDate:new Date().toISOString().slice(0,10),orderer:"",items:[],memo:""});
     setSaving(false);
   }
   async function deleteOrder(id){if(!sb)return;await sb.from("branch_orders").delete().eq("id",id);setBranchOrders(p=>p.filter(o=>o.id!==id));}
 
-  // 필터
+  // ── 필터/계산 ──
   const supplierGroups=useMemo(()=>{const m={};ingredients.forEach(i=>{if(!m[i.supplier])m[i.supplier]=[];m[i.supplier].push(i);});return m;},[ingredients]);
   const allSupViews=["전체",...Object.keys(supplierGroups)];
   const filteredIngs=useMemo(()=>{
@@ -305,7 +354,7 @@ export default function App(){
     const sel=ingredients.filter(i=>selectedIngIds.includes(i.id));
     if(!sel.length) return [];
     const dates=[...new Set(sel.flatMap(i=>(i.price_history||[]).map(h=>h.date)))].sort();
-    return dates.map(date=>{const obj={date};sel.forEach(i=>{const e=(i.price_history||[]).filter(h=>h.date<=date);const k=`${i.name}(${i.supplier})`;if(e.length) obj[k]=e[e.length-1].price;});return obj;});
+    return dates.map(date=>{const obj={date};sel.forEach(i=>{const e=(i.price_history||[]).filter(h=>h.date<=date);const k=`${i.name}(${i.supplier})`;if(e.length)obj[k]=e[e.length-1].price;});return obj;});
   },[ingredients,selectedIngIds]);
 
   const sameNameIngs=useMemo(()=>{if(!addItem.ingName)return[];return ingredients.filter(i=>i.name===addItem.ingName);},[addItem.ingName,ingredients]);
@@ -349,7 +398,6 @@ export default function App(){
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="레시피원가.csv";a.click();
   }
 
-  // 인쇄용 숨김 영역
   const printIngHtml=ingredients.map(i=>`<tr><td>${i.name}</td><td>${i.supplier}</td><td>${i.buy_weight*(i.buy_unit==="kg"||i.buy_unit==="L"?1000:1)}g</td><td>${i.buy_weight}${i.buy_unit}</td><td>${fmt(i.price)}원</td></tr>`).join("");
   const printRecHtml=recipes.map(r=>{
     const{pieceCost,sellUnitCost,margin,res}=calcSellUnitCost(r,ingredients,recipes);
@@ -362,6 +410,9 @@ export default function App(){
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",background:"#f5f5f5",minHeight:"100vh",paddingBottom:40}}>
       <div id="print-ingredients" style={{display:"none"}}><h2>재료 목록</h2><table><thead><tr><th>재료명</th><th>구입처</th><th>구매용량(g기준)</th><th>구매단위</th><th>구매단가</th></tr></thead><tbody dangerouslySetInnerHTML={{__html:printIngHtml}}/></table></div>
       <div id="print-recipes" style={{display:"none"}} dangerouslySetInnerHTML={{__html:`<h2>레시피 목록</h2>${printRecHtml}`}}/>
+
+      {/* 품목 수정 모달 */}
+      {editingPItem&&<EditPItemModal item={editingPItem} onSave={form=>updatePurchaseItem(editingPItem.id,form)} onClose={()=>setEditingPItem(null)}/>}
 
       <div style={{background:"#fff",borderBottom:"1px solid #e8e8e8",padding:"16px 20px 0"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -492,7 +543,7 @@ export default function App(){
                   {SELL_UNITS_TYPE.map(u=>(<button key={u} onClick={()=>setNewRecipe(p=>({...p,sellUnitType:u}))} style={{padding:"6px 16px",borderRadius:8,border:"2px solid",borderColor:newRecipe.sellUnitType===u?"#378ADD":"#ddd",background:newRecipe.sellUnitType===u?"#e8f3ff":"#fff",color:newRecipe.sellUnitType===u?"#1a5fa8":"#555",fontSize:13,fontWeight:500,cursor:"pointer"}}>{u==="개"?"낱개(개)":u==="봉"?"묶음(봉)":"무게(kg)"}</button>))}
                   <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:8}}>
                     <input type="number" value={newRecipe.sellUnitQty} onChange={e=>setNewRecipe(p=>({...p,sellUnitQty:e.target.value}))} style={{width:70,padding:"7px 10px",border:"1px solid #ddd",borderRadius:8,fontSize:13,textAlign:"center"}}/>
-                    <span style={{fontSize:13,color:"#555",fontWeight:500}}>{newRecipe.sellUnitType==="개"?"개":newRecipe.sellUnitType==="봉"?`개 × 1봉`:"kg"}</span>
+                    <span style={{fontSize:13,color:"#555",fontWeight:500}}>{newRecipe.sellUnitType==="개"?"개":newRecipe.sellUnitType==="봉"?"개 × 1봉":"kg"}</span>
                   </div>
                 </div>
                 <p style={{fontSize:12,color:"#888",margin:"8px 0 0"}}>판매단위: <strong style={{color:"#1a5fa8"}}>{buildSellUnit(newRecipe.sellUnitQty,newRecipe.sellUnitType)}</strong></p>
@@ -554,7 +605,7 @@ export default function App(){
             </div>
 
             {filteredRecipes.map(r=>{
-              const{pieceCost,sellUnitCost,margin,pieceCount,res}=calcSellUnitCost(r,ingredients,recipes);
+              const{pieceCost,sellUnitCost,margin,res}=calcSellUnitCost(r,ingredients,recipes);
               const showRatio=recipeView[r.id]?.ratio,showCost=recipeView[r.id]?.cost,showSteps=recipeView[r.id]?.steps;
               return(
                 <Card key={r.id}>
@@ -594,9 +645,9 @@ export default function App(){
                         <option value="재료">재료</option><option value="포장재">포장재</option>
                       </Sel>
                     </div>
-                    <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매링크 (URL)</p><Inp placeholder="https://..." value={newPItem.buyLink} onChange={e=>setNewPItem(p=>({...p,buyLink:e.target.value}))}/></div>
+                    <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매링크 / 연락처</p><Inp placeholder="https:// 또는 전화번호" value={newPItem.buyLink} onChange={e=>setNewPItem(p=>({...p,buyLink:e.target.value}))}/></div>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12,alignItems:"end"}}>
                     <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매단위</p>
                       <Sel value={newPItem.buyUnit} onChange={e=>setNewPItem(p=>({...p,buyUnit:e.target.value}))}>
                         {BUY_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
@@ -604,7 +655,7 @@ export default function App(){
                     </div>
                     <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매수량</p><Inp type="number" placeholder="예: 1" value={newPItem.buyWeight} onChange={e=>setNewPItem(p=>({...p,buyWeight:e.target.value}))}/></div>
                     <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>구매단가 (원)</p><Inp type="number" placeholder="예: 5000" value={newPItem.price} onChange={e=>setNewPItem(p=>({...p,price:e.target.value}))}/></div>
-                    <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>메모</p><Inp placeholder="특이사항 메모" value={newPItem.memo} onChange={e=>setNewPItem(p=>({...p,memo:e.target.value}))}/></div>
+                    <div><p style={{fontSize:11,color:"#888",margin:"0 0 4px",fontWeight:500}}>메모</p><Inp placeholder="특이사항" value={newPItem.memo} onChange={e=>setNewPItem(p=>({...p,memo:e.target.value}))}/></div>
                   </div>
                   <Btn onClick={addPurchaseItem} variant="primary" style={{padding:"9px 24px"}}>등록</Btn>
                 </Card>
@@ -620,7 +671,7 @@ export default function App(){
                   <div style={{overflowX:"auto"}}>
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
                       <thead><tr style={{background:"#f8f8f8"}}>
-                        {["품목명","분류","구매링크","구매","단가","마지막구매일","메모",""].map(h=>(<th key={h} style={{padding:"7px 10px",fontWeight:500,color:"#666",fontSize:12,textAlign:h==="단가"?"right":"left"}}>{h}</th>))}
+                        {["품목명","분류","구매링크/연락처","구매","단가","마지막구매일","메모",""].map(h=>(<th key={h} style={{padding:"7px 10px",fontWeight:500,color:"#666",fontSize:12,textAlign:h==="단가"?"right":"left"}}>{h}</th>))}
                       </tr></thead>
                       <tbody>
                         {filteredPItems.map(item=>(
@@ -628,15 +679,20 @@ export default function App(){
                             <td style={{padding:"8px 10px",fontWeight:600,cursor:"pointer",color:selPItemId===item.id?"#1a5fa8":"#111"}} onClick={()=>setSelPItemId(selPItemId===item.id?null:item.id)}>{item.name}</td>
                             <td style={{padding:"8px 10px"}}><span style={{background:"#f0f0f0",padding:"2px 8px",borderRadius:12,fontSize:11}}>{item.category}</span></td>
                             <td style={{padding:"8px 10px"}}>
-                              {item.buy_link?<a href={item.buy_link} target="_blank" rel="noopener noreferrer" style={{color:"#378ADD",fontSize:12,display:"flex",alignItems:"center",gap:4}}>바로가기 →</a>:<span style={{color:"#ccc",fontSize:12}}>-</span>}
+                              {item.buy_link
+                                ? isUrl(item.buy_link)
+                                  ? <a href={item.buy_link} target="_blank" rel="noopener noreferrer" style={{color:"#378ADD",fontSize:12,display:"flex",alignItems:"center",gap:4}}>바로가기 →</a>
+                                  : <span style={{fontSize:12,color:"#555"}}>{item.buy_link}</span>
+                                : <span style={{color:"#ccc",fontSize:12}}>-</span>}
                             </td>
                             <td style={{padding:"8px 10px"}}><span style={{background:"#f0f0f0",padding:"2px 8px",borderRadius:12,fontSize:12}}>{item.buy_weight}{item.buy_unit}</span></td>
                             <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:"#1a5fa8"}}>{fmt(item.price)}원</td>
-                            <td style={{padding:"8px 10px",color:"#aaa",fontSize:12}}>{item.last_bought_date||"-"}</td>
+                            <td style={{padding:"8px 10px",color:item.last_bought_date?"#555":"#ccc",fontSize:12}}>{item.last_bought_date||"미기록"}</td>
                             <td style={{padding:"8px 10px",color:"#888",fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.memo||"-"}</td>
-                            <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                            <td style={{padding:"8px 10px",whiteSpace:"nowrap",display:"flex",gap:4}}>
+                              <Btn onClick={()=>setEditingPItem(item)} variant="warning" style={{fontSize:12,padding:"4px 10px"}}>수정</Btn>
                               <PriceEdit onSave={(p,d)=>updatePItemPrice(item.id,p,d)}/>
-                              <button onClick={()=>deletePItem(item.id)} style={{marginLeft:4,border:"1px solid #f7c1c1",background:"#fef0f0",color:"#E24B4A",borderRadius:6,cursor:"pointer",padding:"4px 8px",fontSize:12}}>삭제</button>
+                              <button onClick={()=>deletePItem(item.id)} style={{border:"1px solid #f7c1c1",background:"#fef0f0",color:"#E24B4A",borderRadius:6,cursor:"pointer",padding:"4px 8px",fontSize:12}}>삭제</button>
                             </td>
                           </tr>
                         ))}
@@ -673,12 +729,10 @@ export default function App(){
                   <div style={{background:"#f8f9fc",borderRadius:8,padding:"10px 14px",marginBottom:12}}>
                     <p style={{fontSize:12,fontWeight:600,color:"#555",margin:"0 0 8px"}}>품목 추가</p>
                     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
-                      <div>
-                        <Sel value={addOrderItem.itemId} onChange={e=>setAddOrderItem(p=>({...p,itemId:e.target.value}))}>
-                          <option value="">품목 선택</option>
-                          {purchaseItems.map(i=><option key={i.id} value={i.id}>{i.name} ({i.category})</option>)}
-                        </Sel>
-                      </div>
+                      <Sel value={addOrderItem.itemId} onChange={e=>setAddOrderItem(p=>({...p,itemId:e.target.value}))}>
+                        <option value="">품목 선택</option>
+                        {purchaseItems.map(i=><option key={i.id} value={i.id}>{i.name} ({i.category})</option>)}
+                      </Sel>
                       <Inp type="number" placeholder="수량" value={addOrderItem.qty} onChange={e=>setAddOrderItem(p=>({...p,qty:e.target.value}))}/>
                       <Sel value={addOrderItem.unit} onChange={e=>setAddOrderItem(p=>({...p,unit:e.target.value}))}>
                         <option value="">단위</option>{BUY_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
@@ -695,9 +749,7 @@ export default function App(){
                             <button onClick={()=>setNewOrder(p=>({...p,items:p.items.filter((_,i)=>i!==idx)}))} style={{border:"none",background:"#fee",color:"#e24b4a",borderRadius:4,cursor:"pointer",padding:"2px 7px",fontSize:12}}>✕</button>
                           </div>
                         ))}
-                        <div style={{display:"flex",justifyContent:"flex-end",marginTop:8,fontSize:13,fontWeight:700,color:"#1a5fa8"}}>
-                          합계: {fmt(newOrder.items.reduce((s,i)=>s+i.totalPrice,0))}원
-                        </div>
+                        <div style={{display:"flex",justifyContent:"flex-end",marginTop:8,fontSize:13,fontWeight:700,color:"#1a5fa8"}}>합계: {fmt(newOrder.items.reduce((s,i)=>s+i.totalPrice,0))}원</div>
                       </div>
                     )}
                   </div>
@@ -705,7 +757,6 @@ export default function App(){
                   <Btn onClick={saveOrder} variant="primary" style={{padding:"10px 28px"}}>💾 요청 저장</Btn>
                 </Card>
 
-                {/* 지점 목록 관리 */}
                 <Card>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <p style={{fontWeight:700,fontSize:14,margin:0,color:"#222"}}>🏪 지점 목록 관리</p>
@@ -719,7 +770,6 @@ export default function App(){
                   </div>
                 </Card>
 
-                {/* 주문 기록 조회 */}
                 <Card>
                   <p style={{fontWeight:700,fontSize:14,margin:"0 0 12px",color:"#222"}}>📅 주문 기록 조회</p>
                   <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
