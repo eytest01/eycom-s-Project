@@ -167,7 +167,7 @@ function LoginScreen({onLogin}){
   const[pw,setPw]=useState("");
   const[error,setError]=useState(false);
   function tryLogin(){
-    if(pw==="4559"){onLogin();}
+    if(pw==="0000"){onLogin();}
     else{setError(true);setPw("");}
   }
   return(
