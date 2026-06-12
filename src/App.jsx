@@ -163,7 +163,36 @@ function EditPItemModal({item,onSave,onClose}){
   );
 }
 
+function LoginScreen({onLogin}){
+  const[pw,setPw]=useState("");
+  const[error,setError]=useState(false);
+  function tryLogin(){
+    if(pw==="4559"){onLogin();}
+    else{setError(true);setPw("");}
+  }
+  return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5f5f5",flexDirection:"column",gap:20}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"2.5rem 2rem",boxShadow:"0 4px 24px rgba(0,0,0,0.10)",width:320,textAlign:"center"}}>
+        <div style={{fontSize:40,marginBottom:12}}>🍞</div>
+        <p style={{fontSize:18,fontWeight:700,margin:"0 0 4px",color:"#111"}}>레시피 원가 관리</p>
+        <p style={{fontSize:13,color:"#aaa",margin:"0 0 24px"}}>비밀번호를 입력해 주세요</p>
+        <input
+          type="password" placeholder="비밀번호" value={pw}
+          onChange={e=>{setPw(e.target.value);setError(false);}}
+          onKeyDown={e=>e.key==="Enter"&&tryLogin()}
+          style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${error?"#E24B4A":"#ddd"}`,borderRadius:8,fontSize:15,boxSizing:"border-box",outline:"none",textAlign:"center",letterSpacing:6,marginBottom:8}}
+          autoFocus/>
+        {error&&<p style={{fontSize:12,color:"#E24B4A",margin:"0 0 8px"}}>비밀번호가 틀렸습니다</p>}
+        <button onClick={tryLogin} style={{width:"100%",padding:"11px",background:"#378ADD",color:"#fff",border:"none",borderRadius:8,fontSize:15,fontWeight:600,cursor:"pointer",marginTop:4}}>입장</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
+  const[loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("auth")==="ok");
+  if(!loggedIn) return<LoginScreen onLogin={()=>{sessionStorage.setItem("auth","ok");setLoggedIn(true);}}/>;
+
   const[tab,setTab]=useState("재료");
   const[ingredients,setIngredients]=useState([]);
   const[recipes,setRecipes]=useState([]);
